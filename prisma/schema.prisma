@@ -1,0 +1,135 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Facility {
+  id        Int       @id @default(autoincrement())
+  name      String
+  type      FacilityType
+  address   String
+  region    String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  users     User[]
+  outbreaks Outbreak[]
+}
+
+enum FacilityType {
+  AGE_CARE
+  CHILD_CARE
+}
+
+model PublicHealthUnit {
+  id               Int       @id @default(autoincrement())
+  name             String
+  region           String
+  notificationEmail String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  users     User[]
+}
+
+model User {
+  id         Int       @id @default(autoincrement())
+  email      String    @unique
+  passwordHash String
+  role       UserRole
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  facilityId Int?
+  facility   Facility? @relation(fields: [facilityId], references: [id])
+
+  phuId      Int?
+  phu        PublicHealthUnit? @relation(fields: [phuId], references: [id])
+
+  outbreaksCreated Outbreak[] @relation("OutbreakCreatedBy")
+  auditLogs        AuditLog[]
+}
+
+enum UserRole {
+  FACILITY
+  PHU
+  ADMIN
+}
+
+model Outbreak {
+  id          Int       @id @default(autoincrement())
+  disease     String
+  onsetDate   DateTime
+  status      OutbreakStatus @default(NEW)
+
+  caseCount          Int      @default(0)
+  staffCaseCount     Int      @default(0)
+  residentCaseCount  Int      @default(0)
+  isAboveThreshold   Boolean  @default(false)
+  outbreakStartDate  DateTime?
+  outbreakEndDate    DateTime?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  facilityId  Int
+  facility    Facility  @relation(fields: [facilityId], references: [id])
+
+  createdById Int
+  createdBy   User      @relation("OutbreakCreatedBy", fields: [createdById], references: [id])
+
+  lineListEntries LineListEntry[]
+  auditLogs       AuditLog[]
+}
+
+enum OutbreakStatus {
+  NEW
+  UNDER_REVIEW
+  CONFIRMED
+  CLOSED
+}
+
+model LineListEntry {
+  id               Int       @id @default(autoincrement())
+  name             String?
+  personType       PersonType
+  ageGroup        String?
+  symptomOnsetDate DateTime
+  symptoms        String?
+  hospitalised    Boolean?
+  outcome         String?
+  createdAt       DateTime  @default(now())
+  lastUpdatedAt   DateTime  @updatedAt
+
+  outbreakId      Int
+  outbreak        Outbreak  @relation(fields: [outbreakId], references: [id])
+}
+
+enum PersonType {
+  RESIDENT
+  CHILD
+  STAFF
+}
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  entityType String
+  entityId   Int
+  action     String
+  details    String?
+  createdAt  DateTime @default(now())
+
+  userId     Int?
+  user       User?    @relation(fields: [userId], references: [id])
+
+  outbreakId Int?
+  outbreak   Outbreak? @relation(fields: [outbreakId], references: [id])
+}
